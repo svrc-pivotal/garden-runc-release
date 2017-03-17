@@ -69,6 +69,61 @@ This command is responsible for mounting cgroups and configuring iptables chains
 
 **NB**: The commands in Step 2 must be run as the rootless user (created in Step 1).
 
+
+## Networking
+step1: build from cf-networking the binaries
+git clone https://github.com/cloudfoundry-incubator/cf-networking-release.git
+cd cf-networking-release
+git submodule update --init
+GOOS=linux GOARCH=amd64 go install garden-external-networker
+GOOS=linux GOARCH=amd64 go install github.com/containernetworking/cni/plugins/main/bridge
+GOOS=linux GOARCH=amd64 go install github.com/containernetworking/cni/plugins/ipam/host-local
+
+transfer the binaries to a path dir -> /usr/local/bin
+
+chmod u+s {garden-external-networker, bridge,host-local}
+
+$ cat /tmp/file.json
+{
+"cni_plugin_dir": "/usr/local/bin",
+"cni_config_dir": "/tmp/config",
+"bind_mount_dir": "/var/vcap/data/garden-cni/container-netns",
+"overlay_network" :"10.0.2.0/24",
+"state_file" : "/var/vcap/data/garden-cni/external-networker-state.json",
+"start_port" : 1000,
+"total_ports" : 2000,
+"iptables_lock_file" :"/var/vcap/data/garden-cni/iptables.lock",
+"instance_address" : "1.2.3.4",
+"iptables_asg_logging" : false
+}
+
+
+$ cat 30-bridge.conf
+{
+    "name": "mynet",
+    "type": "bridge",
+    "bridge": "mynet0",
+    "isDefaultGateway": true,
+    "forceAddress": false,
+    "ipMasq": true,
+    "hairpinMode": true,
+    "ipam": {
+        "type": "host-local",
+        "subnet": "10.10.0.0/16"
+    }
+}
+
+
+modify gdn not to do /etc/{hosts,resolve}
+
+make sure iptables is in the $PATH
+export PATH=$PATH:/sbin
+
+$ gdn server   --bind-ip 0.0.0.0   --bind-port 7777   --image-plugin /usr/local/bin/grootfs   --image-plugin-extra-arg=--store   --image-plugin-extra-arg=/var/lib/grootfs/btrfs   --network-plugin /home/ubuntu/cf-networking-release/bin/garden-external-networker --network-plugin-extra-arg='--configFile=/tmp/file.json'  --skip-setup
+
+inside the container ping 8.8.8.8 (iptable enable)
+
+
 ```
 root@ubuntu-xenial:~# su - rootless
 rootless@ubuntu-xenial:~$ gdn server \
