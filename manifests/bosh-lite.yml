@@ -20,6 +20,8 @@ jobs:
     properties:
       garden:
         graph_cleanup_threshold_in_mb: 1024
+        experimental_nvidia_gpu_support: true
+        nvidia_gpu_count: 2
         listen_network: tcp
         listen_address: 0.0.0.0:7777
         debug_listen_address: 0.0.0.0:17013
